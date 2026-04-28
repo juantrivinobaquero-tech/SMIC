@@ -1,104 +1,197 @@
-#define LED1 5
-#define LED2 6
-#define LED3 7
-#define LED4 8
+#include <WiFi.h>
+#include <PubSubClient.h>
 
-#define SENT1 1
-#define SENT2 2
-#define SENT3 3
-#define SENT4 4
+const char* ssid = "sc-17f0";
+const char* password = "Q5DN24V4FLYG";
 
-#define SEND1 11
-#define SEND2 12
-#define SEND3 13
-#define SEND4 14
+const char* mqtt_server = "broker.hivemq.com";
+
+WiFiClient   espClient;
+PubSubClient client(espClient);
+
+
+
+#define norter 5
+#define nortea 5
+#define nortev 5
+
+#define surr 5
+#define sura 5
+#define surv 5
+
+#define ester 5
+#define estea 5
+#define estev 5
+
+#define oester 5
+#define oestea 5
+#define oestev 5
+
+
+
+#define norte_ir_ade 5
+#define norte_ir_atr 5
+
+#define sur_ir_ade 5
+#define sur_ir_atr 5
+
+#define este_ir_ade 5
+#define este_ir_atr 5
+
+#define oeste_ir_ade 5
+#define oeste_ir_atr 5
+
+
+
+int SEM_Norte[3] = {norter, nortea, nortev};
+
+int SEM_Sur[3] = {surr, sura, surv};
+
+int SEM_Este[3] = {ester, estea, estev};
+
+int SEM_Oeste[3] = {oester, oestea, oestev};
+
+
+
+// Conteo de carros - variables --------------------
+int pasaron_norte = 0;
+int pasaron_sur   = 0;
+int pasaron_este  = 0;
+int pasaron_oeste = 0;
+
+bool este_atr_ante = 1;
+bool oeste_atr_ante = 1;
+bool norte_atr_ante = 1;
+bool sur_atr_ante = 1;
+
+// Hay carros esperando? variables-------------------
+bool espera_norte_sur = false;
+bool espera_este_oeste = false;
+
+bool flag_norte = 0;
+bool flag_sur = 0;
+bool flag_este = 0;
+bool flag_oeste = 0;
+
+long tiempo_espera_este = 0;
+long tiempo_espera_oeste = 0;
+long tiempo_espera_norte = 0;
+long tiempo_espera_sur = 0;
+
+bool norte_ante = 0;
+bool sur_ante = 0;
+bool este_ante = 0;
+bool oeste_ante = 0;
+//------------------------------------------
+
+bool hayAutos_n_s() {
+
+//NORTE_______________
+  if((norte_ante == HIGH) && (digitalRead(norte_ir_ade) == LOW)){
+    tiempo_espera_norte = millis();
+    flag_norte = 1;
+  }
+  if((norte_ante == LOW) && (digitalRead(norte_ir_ade) == HIGH)){
+    flag_norte = 0;
+  }
+  if((millis() - tiempo_espera_norte > 3000) && (flag_norte == 1)){
+    flag_norte = 0;
+    return true;
+  }
+
+ //SUR_________________
+  if((sur_ante == HIGH) && (digitalRead(sur_ir_ade) == LOW)){
+    tiempo_espera_sur = millis();
+    flag_sur = 1;
+  }
+  if((sur_ante == LOW) && (digitalRead(sur_ir_ade) == HIGH)){
+    flag_sur = 0;
+  }
+  if((millis() - tiempo_espera_sur > 3000) && (flag_sur == 1)){
+    flag_sur = 0;
+    return true;
+  }
+  norte_ante = (digitalRead(norte_ir_ade));
+  sur_ante   = (digitalRead(sur_ir_ade));
+  return false;
+}
+
+
+
+
+bool hayAutos_e_o(){
+  //ESTE__________
+
+  if((este_ante == HIGH) && (digitalRead(este_ir_ade) == LOW)){
+    tiempo_espera_este = millis();
+    flag_este = 1;
+  }
+  if((este_ante == LOW) && (digitalRead(este_ir_ade) == HIGH)){
+    flag_este = 0;
+  }
+  if((millis() - tiempo_espera_este > 3000) && (flag_este == 1)){
+    flag_este = 0;
+    return true;
+  }
+
+ //OESTE_________________
+  if((oeste_ante == HIGH) && (digitalRead(oeste_ir_ade) == LOW)){
+    tiempo_espera_oeste = millis();
+    flag_oeste = 1;
+  }
+  if((oeste_ante == LOW) && (digitalRead(oeste_ir_ade) == HIGH)){
+    flag_oeste = 0;
+  }
+  if((millis() - tiempo_espera_oeste > 3000) && (flag_oeste == 1)){
+    flag_oeste = 0;
+    return true;
+  }
+  este_ante  = (digitalRead(este_ir_ade));
+  oeste_ante = (digitalRead(oeste_ir_ade));
+  return false;
+}
+
+
+void contarautos_este(){
+
+  if ((este_atr_ante == HIGH) && (digitalRead(este_ir_atr) == LOW)) {
+    pasaron_este = pasaron_este + 1;
+  }
+
+  este_atr_ante = (digitalRead(este_ir_atr));
+}
+
+
+
+
+void tiempos(){
+  
+}
+
+
 
 
 void setup() {
-    
-  pinMode(LED1, OUTPUT);
-  pinMode(LED2, OUTPUT);
-  pinMode(LED3, OUTPUT);
-  pinMode(LED4, OUTPUT);
+  Serial.begin(115200);
 
-  pinMode(SENT1, INPUT);
-  pinMode(SENT2, INPUT);
-  pinMode(SENT3, INPUT);
-  pinMode(SENT4, INPUT);
+  // Salidas semáforos------------------------
+  pinMode(norter, OUTPUT); pinMode(nortea, OUTPUT); pinMode(nortev, OUTPUT);
+  pinMode(surr,   OUTPUT); pinMode(sura,   OUTPUT); pinMode(surv,   OUTPUT);
+  pinMode(ester,  OUTPUT); pinMode(estea,  OUTPUT); pinMode(estev,  OUTPUT);
+  pinMode(oester, OUTPUT); pinMode(oestea, OUTPUT); pinMode(oestev, OUTPUT);
 
-  pinMode(SEND1, INPUT);
-  pinMode(SEND2, INPUT);
-  pinMode(SEND3, INPUT);
-  pinMode(SEND4, INPUT);
+  // Entradas sensores-------------------------
+  pinMode(norte_ir_atr, INPUT); pinMode(norte_ir_ade, INPUT);
+  pinMode(sur_ir_atr,   INPUT); pinMode(sur_ir_ade,   INPUT);
+  pinMode(este_ir_atr,  INPUT); pinMode(este_ir_ade,  INPUT);
+  pinMode(oeste_ir_atr, INPUT); pinMode(oeste_ir_ade, INPUT);
 
-Serial.begin(9600);
+
+
+
+
 
 }
-
-int contador1(bool control1){
-
-  bool ante1 = digitalRead(SENT1);
-  int cont1 = 0;
-
-  if ((digitalRead(SENT1) == HIGH) && (ante1 == LOW)){
-    cont1 = cont1 + 1;
-    return cont1
-  }
-  if(control1 == 1){
-    cont1 = 0;
-    control1 = 0;
-  }
-}
-
-int contador2(bool control2){
-
-  bool ante2 = digitalRead(SENT2);
-  int cont2 = 0;
-
-  if ((digitalRead(SENT2) == HIGH) && (ante2 == LOW)){
-    cont2 = cont2 + 1;
-    return cont2
-  }
-  if(control2 == 1){
-    cont2 = 0;
-    control2 = 0;
-  }
-}
-
-int contador3(bool control3){
-
-  bool ante3 = digitalRead(SENT3);
-  int cont3 = 0;
-
-  if ((digitalRead(SENT3) == HIGH) && (ante3 == LOW)){
-    cont3 = cont3 + 1;
-    return cont3
-  }
-  if(control3 == 1){
-    cont3 = 0;
-    control3 = 0;
-  }
-}
-
-int contador4(bool control4){
-
-  bool ante4 = digitalRead(SENT4);
-  int cont4 = 0;
-
-  if ((digitalRead(SENT4) == HIGH) && (ante4 == LOW)){
-    cont4 = cont4 + 1;
-    return cont4
-  }
-  if(control4 == 1){
-    cont4 = 0;
-    control4 = 0;
-  }
-}
-
-
-
-
-
 
 void loop() {
 
