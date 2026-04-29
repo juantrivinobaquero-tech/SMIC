@@ -10,7 +10,7 @@ El sistema utiliza las capacidades de procesamiento y conectividad del ESP32 par
 * **Conectividad:** Uso de las funciones integradas del ESP32 para monitoreo o control remoto.
 * **Gestión de Tiempos:** Manejo eficiente de delays o interrupciones para una respuesta precisa.
 
-##️ Tecnologías Utilizadas
+## Tecnologías Utilizadas
 * **Hardware:** ESP32..
 * **Herramientas:** Git para control de versiones.
 
@@ -38,5 +38,4 @@ Registra el volumen de tráfico de forma independiente para cada punto cardinal.
 
 ##  Configuración de Hardware
 El sistema utiliza arreglos de enteros para gestionar los pines de los LEDs (SEM_Norte, SEM_Sur, etc.) y define entradas específicas para sensores de proximidad infrarrojos en posiciones estratégicas (Adelante/Atrás).
----
 
