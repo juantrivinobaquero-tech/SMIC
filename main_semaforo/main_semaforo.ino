@@ -99,7 +99,7 @@ bool oeste_ante = 0;
 
 
 bool hayAutos_n_s() {
-//NORTE_______________
+  //NORTE_______________
   if((norte_ante == HIGH) && (digitalRead(norte_ir_ade) == LOW)){
     tiempo_espera_norte = millis();
     flag_norte = 1;
@@ -164,7 +164,7 @@ bool hayAutos_e_o(){
 
 
 //funciones para contar los carros que van pasando en cada calle.---------------------------------------
-//NORTE--------------------------------------------
+//------------------------NORTE-------------------------
 void contar_autos_norte(){
   if ((norte_atr_ante == HIGH) && (digitalRead(norte_ir_atr) == LOW)) {
     tiempo_conteo_norte = millis();
@@ -235,6 +235,12 @@ void tiempos(){
 }
 
 
+void actualizarSemaforo(int semaforo[], int r, int a, int v) {
+    digitalWrite(semaforo[0], r);
+    digitalWrite(semaforo[1], a);
+    digitalWrite(semaforo[2], v);
+}
+
 
 
 void setup() {
@@ -252,13 +258,80 @@ void setup() {
   pinMode(este_ir_atr,  INPUT); pinMode(este_ir_ade,  INPUT);
   pinMode(oeste_ir_atr, INPUT); pinMode(oeste_ir_ade, INPUT);
 
-
-
-
-
-
 }
 
+int estado = 1;
+int anterior = 2;
+int control = 0;
+long tiempo_control_loop = 0;
+
+
 void loop() {
+
+  contar_autos_norte();
+  contar_autos_sur();
+  contar_autos_este();
+  contar_autos_oeste();
+
+
+//---------------------Norte-Sur-------------------------
+  if(estado == 0){
+    anterior = estado;
+
+    if(control == 0){
+      tiempo_control_loop = millis();
+      control = 1;
+    }
+    
+
+  }
+
+
+//-------------------El intermedio-------------------------
+  else if(estado == 1){
+
+    actualizarSemaforo(SEM_Norte, LOW, HIGH, LOW);
+    actualizarSemaforo(SEM_Sur, LOW, HIGH, LOW); 
+    actualizarSemaforo(SEM_Este, LOW, HIGH, LOW); 
+    actualizarSemaforo(SEM_Oeste, LOW, HIGH, LOW); 
+
+    if(control == 0){
+      tiempo_control_loop = millis();
+      control = 1;
+    }
+
+    else if((millis() - tiempo_control_loop) > 1000){
+      control = 0
+      if(anterior == 2){
+        estado = 0;
+      }
+      else if(anterior == 1){
+        estado = 2;
+      }
+    }
+}
+
+
+//-----------------------Oeste-Este--------------------------
+  else if(estado == 2){
+
+  }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 }
