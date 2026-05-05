@@ -11,6 +11,12 @@ WiFiClient   espClient;
 PubSubClient client(espClient);
 
 
+//PAra los reportes -----------------
+bool modo_manual = false; 
+long ultimo_reporte = 0;
+
+
+
 //Definir los pines de la ESP (pendiente) ------------------------------------
 #define norter 5
 #define nortea 5
@@ -98,6 +104,9 @@ bool oeste_ante = 0;
 //Funciones para saber si hay carros esperando, nos sirven las dos para las que se enfrentan.------------------------
 //------------------------NORTE-SUR-------------------------
 bool hayAutos_n_s() {
+
+  bool lectura_norte = digitalRead(norte_ir_ade);
+  bool lectura_sur   = digitalRead(sur_ir_ade);
   //NORTE_______________
   if((norte_ante == HIGH) && (digitalRead(norte_ir_ade) == LOW)){
     tiempo_espera_norte = millis();
@@ -108,6 +117,8 @@ bool hayAutos_n_s() {
   }
   if((millis() - tiempo_espera_norte > 2000) && (flag_norte == 1)){
     flag_norte = 0;
+    norte_ante = lectura_norte; 
+    sur_ante   = lectura_sur;
     return true;
   }
 
@@ -121,15 +132,21 @@ bool hayAutos_n_s() {
   }
   if((millis() - tiempo_espera_sur > 2000) && (flag_sur == 1)){
     flag_sur = 0;
+    sur_ante   = lectura_sur;
+    norte_ante = lectura_norte; 
     return true;
   }
-  norte_ante = (digitalRead(norte_ir_ade));
-  sur_ante   = (digitalRead(sur_ir_ade));
+  norte_ante = lectura_norte;
+  sur_ante   = lectura_sur;
   return false;
 }
 
 //-------------------------ESTE-OESTE--------------------------
 bool hayAutos_e_o(){
+
+  bool lectura_este = digitalRead(este_ir_ade);
+  bool lectura_oeste   = digitalRead(oeste_ir_ade);
+
   //ESTE__________
 
   if((este_ante == HIGH) && (digitalRead(este_ir_ade) == LOW)){
@@ -141,6 +158,8 @@ bool hayAutos_e_o(){
   }
   if((millis() - tiempo_espera_este > 2000) && (flag_este == 1)){
     flag_este = 0;
+    este_ante = lectura_este;
+    oeste_ante = lectura_oeste; 
     return true;
   }
 
@@ -153,11 +172,13 @@ bool hayAutos_e_o(){
     flag_oeste = 0;
   }
   if((millis() - tiempo_espera_oeste > 2000) && (flag_oeste == 1)){
+    este_ante = lectura_este;
+    oeste_ante = lectura_oeste; 
     flag_oeste = 0;
     return true;
   }
-  este_ante  = (digitalRead(este_ir_ade));
-  oeste_ante = (digitalRead(oeste_ir_ade));
+  este_ante = lectura_este;
+  oeste_ante = lectura_oeste; 
   return false;
 }
 
@@ -233,6 +254,10 @@ int tiempos(unsigned int car1, unsigned int car2, bool hayo){
   int cart = 0;
   int clo = 0;
 
+  if(car1 == 0 && car2 == 0){
+    return 1;
+  }
+
   if(car1 > car2){
     cart = car1;
   }
@@ -256,13 +281,7 @@ int tiempos(unsigned int car1, unsigned int car2, bool hayo){
     clo = 7;
   }
 
-
-    if(cart == 0){
-    clo = 1;
-  }
-
   return clo;
-
 }
 
 
@@ -273,9 +292,98 @@ void actualizarSemaforo(int semaforo[], int r, int a, int v) {
 }
 
 
+// --- 1. Conectar a WiFi ---
+void setup_wifi() {
+  delay(10);
+  Serial.println();
+  Serial.print("Conectando a ");
+  Serial.println(ssid);
+  WiFi.begin(ssid, password);
+  while (WiFi.status() != WL_CONNECTED) {
+    delay(500);
+    Serial.print(".");
+  }
+  Serial.println("");
+  Serial.println("WiFi conectado");
+}
+
+// --- 2. Recibir comandos desde Node-RED ---
+void callback(char* topic, byte* payload, unsigned int length) {
+  String mensaje = "";
+  for (int i = 0; i < length; i++) {
+    mensaje += (char)payload[i];
+  }
+  
+  Serial.print("Mensaje recibido [");
+  Serial.print(topic);
+  Serial.print("] ");
+  Serial.println(mensaje);
+
+  // Lógica para tomar control remoto
+  if (String(topic) == "semaforo/control") {
+    if (mensaje == "AUTO") {
+      modo_manual = false;
+      Serial.println("Regresando a modo automático");
+    } 
+    else if (mensaje == "MANUAL_NS") {
+      modo_manual = true;
+      actualizarSemaforo(SEM_Norte, 0, 0, 1); // Verde N-S
+      actualizarSemaforo(SEM_Sur,   0, 0, 1); 
+      actualizarSemaforo(SEM_Este,  1, 0, 0); // Rojo E-O
+      actualizarSemaforo(SEM_Oeste, 1, 0, 0); 
+    }
+    else if (mensaje == "MANUAL_EO") {
+      modo_manual = true;
+      actualizarSemaforo(SEM_Norte, 1, 0, 0); // Rojo N-S
+      actualizarSemaforo(SEM_Sur,   1, 0, 0); 
+      actualizarSemaforo(SEM_Este,  0, 0, 1); // Verde E-O
+      actualizarSemaforo(SEM_Oeste, 0, 0, 1); 
+    }
+  }
+}
+
+// --- 3. Mantener conexión MQTT viva ---
+void reconnect() {
+  while (!client.connected()) {
+    Serial.print("Intentando conexión MQTT...");
+    // Intentar conectar (usando un ID aleatorio)
+    String clientId = "ESP32Client-" + String(random(0, 1000));
+    if (client.connect(clientId.c_str())) {
+      Serial.println("conectado");
+      // Suscribirse al tópico de control en cuanto se conecta
+      client.subscribe("semaforo/control");
+    } else {
+      Serial.print("falló, rc=");
+      Serial.print(client.state());
+      Serial.println(" intentando de nuevo en 5 segundos");
+      delay(5000);
+    }
+  }
+}
+
+// --- 4. Reportar datos a Node-RED ---
+void reportar_datos() {
+  if (client.connected()) {
+    // Reportar conteo de autos 
+    client.publish("semaforo/norte/conteo", String(pasaron_norte).c_str());
+    client.publish("semaforo/sur/conteo", String(pasaron_sur).c_str());
+    client.publish("semaforo/este/conteo", String(pasaron_este).c_str());
+    client.publish("semaforo/oeste/conteo", String(pasaron_oeste).c_str());
+
+    // Reportar si hay espera (1 = Sí, 0 = No)
+    client.publish("semaforo/norte_sur/espera", espera_norte_sur ? "1" : "0");
+    client.publish("semaforo/este_oeste/espera", espera_este_oeste ? "1" : "0");
+  }
+}
+
 
 void setup() {
   Serial.begin(115200);
+
+//WIFI-----------------------------
+  setup_wifi();
+  client.setServer(mqtt_server, 1883);
+  client.setCallback(callback);
 
   // Salidas semáforos------------------------
   pinMode(norter, OUTPUT); pinMode(nortea, OUTPUT); pinMode(nortev, OUTPUT);
@@ -306,97 +414,112 @@ unsigned int carros_antes_este = 0;
 
 void loop() {
 
+  if (!client.connected()) {
+    reconnect();
+  }
+
+  client.loop();
+
+  if(millis() - ultimo_reporte > 5000) {
+    reportar_datos();
+    ultimo_reporte = millis();
+  }
+
   espera_norte_sur = hayAutos_n_s();
   espera_este_oeste = hayAutos_e_o();  
-
   contar_autos_norte();
   contar_autos_sur();
   contar_autos_este();
   contar_autos_oeste();
 
 
+
 //---------------------Norte-Sur-------------------------
-  if(estado == 0){
-    anterior = estado;
 
-    if(control == 0){
-      tiempo_control_loop = millis();
-      control = 1;
+  if (!modo_manual) {
 
-      carros_antes_oeste = pasaron_oeste;
-      carros_antes_este = pasaron_este;
+    if(estado == 0){
+      anterior = estado;
 
-      carros_antes_norte = pasaron_norte - carros_antes_norte;
-      carros_antes_sur = pasaron_sur - carros_antes_sur;
+      if(control == 0){
+        tiempo_control_loop = millis();
+        control = 1;
 
-      tie = (tiempos(carros_antes_norte, carros_antes_sur, espera_este_oeste) * 1000);
+        carros_antes_oeste = pasaron_oeste;
+        carros_antes_este = pasaron_este;
+
+        carros_antes_norte = pasaron_norte - carros_antes_norte;
+        carros_antes_sur = pasaron_sur - carros_antes_sur;
+
+        tie = (tiempos(carros_antes_norte, carros_antes_sur, espera_este_oeste) * 1000);
+      }
+      
+      actualizarSemaforo(SEM_Norte, 0, 0, 1);
+      actualizarSemaforo(SEM_Sur,  0, 0, 1); 
+      actualizarSemaforo(SEM_Este, 1, 0, 0); 
+      actualizarSemaforo(SEM_Oeste, 1, 0, 0);  
+
+
+      if((millis() - tiempo_control_loop) >= tie){
+          estado = 1;
+          control = 0;
+      }
     }
-    
-    actualizarSemaforo(SEM_Norte, 0, 0, 1);
-    actualizarSemaforo(SEM_Sur,  0, 0, 1); 
-    actualizarSemaforo(SEM_Este, 1, 0, 0); 
-    actualizarSemaforo(SEM_Oeste, 1, 0, 0);  
 
 
-    if((millis() - tiempo_control_loop) >= tie){
-        estado = 1;
+  //-------------------El intermedio-------------------------
+    else if(estado == 1){
+
+      actualizarSemaforo(SEM_Norte, LOW, HIGH, LOW);
+      actualizarSemaforo(SEM_Sur, LOW, HIGH, LOW); 
+      actualizarSemaforo(SEM_Este, LOW, HIGH, LOW); 
+      actualizarSemaforo(SEM_Oeste, LOW, HIGH, LOW); 
+
+      if(control == 0){
+        tiempo_control_loop = millis();
+        control = 1;
+      }
+
+      else if((millis() - tiempo_control_loop) > 2500){
         control = 0;
-    }
+        if(anterior == 2){
+          estado = 0;
+        }
+        else if(anterior == 0){
+          estado = 2;
+        }
+      }
   }
 
 
-//-------------------El intermedio-------------------------
-  else if(estado == 1){
+  //-----------------------Oeste-Este--------------------------
+    else if(estado == 2){
 
-    actualizarSemaforo(SEM_Norte, LOW, HIGH, LOW);
-    actualizarSemaforo(SEM_Sur, LOW, HIGH, LOW); 
-    actualizarSemaforo(SEM_Este, LOW, HIGH, LOW); 
-    actualizarSemaforo(SEM_Oeste, LOW, HIGH, LOW); 
+      if(control == 0){
+        tiempo_control_loop = millis();
+        control = 1;
+        anterior = estado;
 
-    if(control == 0){
-      tiempo_control_loop = millis();
-      control = 1;
-    }
+        carros_antes_norte = pasaron_norte;
+        carros_antes_sur = pasaron_sur;
 
-    else if((millis() - tiempo_control_loop) > 2500){
-      control = 0;
-      if(anterior == 2){
-        estado = 0;
+        carros_antes_este = pasaron_este - carros_antes_este;
+        carros_antes_oeste = pasaron_oeste - carros_antes_oeste;
+
+        tie = (tiempos(carros_antes_este, carros_antes_oeste, espera_norte_sur) * 1000);
       }
-      else if(anterior == 0){
-        estado = 2;
+      
+
+      actualizarSemaforo(SEM_Norte, 1, 0, 0);
+      actualizarSemaforo(SEM_Sur,   1, 0, 0); 
+      actualizarSemaforo(SEM_Este,  0, 0, 1); 
+      actualizarSemaforo(SEM_Oeste, 0, 0, 1);  
+
+
+      if((millis() - tiempo_control_loop) >= tie){
+          estado = 1;
+          control = 0;
       }
-    }
-}
-
-
-//-----------------------Oeste-Este--------------------------
-  else if(estado == 2){
-
-    if(control == 0){
-      tiempo_control_loop = millis();
-      control = 1;
-      anterior = estado;
-
-      carros_antes_norte = pasaron_norte;
-      carros_antes_sur = pasaron_sur;
-
-      carros_antes_este = pasaron_este - carros_antes_este;
-      carros_antes_oeste = pasaron_oeste - carros_antes_oeste;
-
-      tie = (tiempos(carros_antes_este, carros_antes_oeste, espera_norte_sur) * 1000);
-    }
-    
-
-    actualizarSemaforo(SEM_Norte, 1, 0, 0);
-    actualizarSemaforo(SEM_Sur,   1, 0, 0); 
-    actualizarSemaforo(SEM_Este,  0, 0, 1); 
-    actualizarSemaforo(SEM_Oeste, 0, 0, 1);  
-
-
-    if((millis() - tiempo_control_loop) >= tie){
-        estado = 1;
-        control = 0;
     }
   }
 }
