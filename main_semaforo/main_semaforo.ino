@@ -54,10 +54,10 @@ int SEM_Oeste[3] = {oester, oestea, oestev};
 
 
 // Conteo de carros - variables --------------------
-int pasaron_norte = 0;
-int pasaron_sur   = 0;
-int pasaron_este  = 0;
-int pasaron_oeste = 0;
+unsigned int pasaron_norte = 0;
+unsigned int pasaron_sur = 0;
+unsigned int pasaron_este = 0;
+unsigned int pasaron_oeste = 0;
 
 bool este_atr_ante = 1;
 bool oeste_atr_ante = 1;
@@ -96,8 +96,7 @@ bool oeste_ante = 0;
 
 
 //Funciones para saber si hay carros esperando, nos sirven las dos para las que se enfrentan.------------------------
-
-
+//------------------------NORTE-SUR-------------------------
 bool hayAutos_n_s() {
   //NORTE_______________
   if((norte_ante == HIGH) && (digitalRead(norte_ir_ade) == LOW)){
@@ -107,7 +106,7 @@ bool hayAutos_n_s() {
   if((norte_ante == LOW) && (digitalRead(norte_ir_ade) == HIGH)){
     flag_norte = 0;
   }
-  if((millis() - tiempo_espera_norte > 3000) && (flag_norte == 1)){
+  if((millis() - tiempo_espera_norte > 2000) && (flag_norte == 1)){
     flag_norte = 0;
     return true;
   }
@@ -120,7 +119,7 @@ bool hayAutos_n_s() {
   if((sur_ante == LOW) && (digitalRead(sur_ir_ade) == HIGH)){
     flag_sur = 0;
   }
-  if((millis() - tiempo_espera_sur > 3000) && (flag_sur == 1)){
+  if((millis() - tiempo_espera_sur > 2000) && (flag_sur == 1)){
     flag_sur = 0;
     return true;
   }
@@ -129,7 +128,7 @@ bool hayAutos_n_s() {
   return false;
 }
 
-
+//-------------------------ESTE-OESTE--------------------------
 bool hayAutos_e_o(){
   //ESTE__________
 
@@ -140,7 +139,7 @@ bool hayAutos_e_o(){
   if((este_ante == LOW) && (digitalRead(este_ir_ade) == HIGH)){
     flag_este = 0;
   }
-  if((millis() - tiempo_espera_este > 3000) && (flag_este == 1)){
+  if((millis() - tiempo_espera_este > 2000) && (flag_este == 1)){
     flag_este = 0;
     return true;
   }
@@ -153,7 +152,7 @@ bool hayAutos_e_o(){
   if((oeste_ante == LOW) && (digitalRead(oeste_ir_ade) == HIGH)){
     flag_oeste = 0;
   }
-  if((millis() - tiempo_espera_oeste > 3000) && (flag_oeste == 1)){
+  if((millis() - tiempo_espera_oeste > 2000) && (flag_oeste == 1)){
     flag_oeste = 0;
     return true;
   }
@@ -230,7 +229,7 @@ void contar_autos_oeste(){
 
 
 
-void tiempos(){
+int tiempos(unsigned int car1, unsigned int car2, bool hay){
   
 }
 
@@ -264,9 +263,19 @@ int estado = 1;
 int anterior = 2;
 int control = 0;
 long tiempo_control_loop = 0;
+int time = 0;
+
+unsigned int carros_antes_norte = 0;
+unsigned int carros_antes_sur = 0;
+unsigned int carros_antes_oeste = 0;
+unsigned int carros_antes_este = 0;
+
 
 
 void loop() {
+
+  espera_norte_sur = hayAutos_n_s();
+  espera_este_oeste = hayAutos_e_o();  
 
   contar_autos_norte();
   contar_autos_sur();
@@ -281,9 +290,26 @@ void loop() {
     if(control == 0){
       tiempo_control_loop = millis();
       control = 1;
+
+      carros_antes_oeste = pasaron_oeste;
+      carros_antes_este = pasaron_este;
+
+      carros_antes_norte = pasaron_norte - carros_antes_norte;
+      carros_antes_sur = pasaron_sur - carros_antes_sur;
+
+      time = (tiempos(carros_antes_norte, carros_antes_sur, espera_este_oeste) * 1000);
     }
     
+    actualizarSemaforo(SEM_Norte, 0, 0, 1);
+    actualizarSemaforo(SEM_Sur,  0, 0, 1); 
+    actualizarSemaforo(SEM_Este, 1, 0, 0); 
+    actualizarSemaforo(SEM_Oeste, 1, 0, 0);  
 
+
+    if((millis() - tiempo_control_loop) >= time){
+        estado = 1;
+        control = 0;
+    }
   }
 
 
@@ -300,7 +326,7 @@ void loop() {
       control = 1;
     }
 
-    else if((millis() - tiempo_control_loop) > 1000){
+    else if((millis() - tiempo_control_loop) > 2500){
       control = 0
       if(anterior == 2){
         estado = 0;
@@ -315,23 +341,32 @@ void loop() {
 //-----------------------Oeste-Este--------------------------
   else if(estado == 2){
 
+    if(control == 0){
+      tiempo_control_loop = millis();
+      control = 1;
+      anterior = estado;
+
+      carros_antes_norte = pasaron_norte;
+      carros_antes_sur = pasaron_sur;
+
+      carros_antes_este = pasaron_este - carros_antes_este;
+      carros_antes_oeste = pasaron_oeste - carros_antes_oeste;
+
+      time = (tiempos(carros_antes_este, carros_antes_oeste, espera_norte_sur) * 1000);
+    }
+    
+
+    actualizarSemaforo(SEM_Norte, 1, 0, 0);
+    actualizarSemaforo(SEM_Sur,   1, 0, 0); 
+    actualizarSemaforo(SEM_Este,  0, 0, 1); 
+    actualizarSemaforo(SEM_Oeste, 0, 0, 1);  
+
+
+    if((millis() - tiempo_control_loop) >= time){
+        estado = 1;
+        control = 0;
+    }
   }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 }
+
+
