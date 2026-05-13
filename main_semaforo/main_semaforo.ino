@@ -35,17 +35,17 @@ long ultimo_reporte = 0;
 #define oestev 5
 
 
-#define norte_ir_ade 1
-#define norte_ir_atr 2
+#define norte_ir_ade 2
+#define norte_ir_atr 3
 
-#define sur_ir_ade 3
-#define sur_ir_atr 4
+#define sur_ir_ade 4
+#define sur_ir_atr 5
 
-#define este_ir_ade 5
-#define este_ir_atr 6
+#define este_ir_ade 6
+#define este_ir_atr 7
 
-#define oeste_ir_ade 7
-#define oeste_ir_atr 8
+#define oeste_ir_ade 8
+#define oeste_ir_atr 9
 
 // Definiendo los semáforos --------------------------
 
@@ -231,30 +231,30 @@ void contar_autos_este() {
     tiempo_conteo_este = millis();
     flag_este_c = 1;
   }
-  if ((este_atr_ante == LOW) && (digitalRead(este_ir_atr) == HIGH)) {
+  if ((este_atr_ante == LOW) && (conversor(analogRead(este_ir_atr)) == HIGH)) {
     flag_este_c = 0;
   }
   if (((millis() - tiempo_conteo_este) > 150) && (flag_este_c == 1)) {
     flag_este_c = 0;
     pasaron_este = pasaron_este + 1;
   }
-  este_atr_ante = digitalRead(este_ir_atr);
+  este_atr_ante = conversor(analogRead(este_ir_atr));
 }
 
 //-------------------------OESTE--------------------------
 void contar_autos_oeste() {
-  if ((oeste_atr_ante == HIGH) && (digitalRead(oeste_ir_atr) == LOW)) {
+  if ((oeste_atr_ante == HIGH) && (conversor(analogRead(oeste_ir_atr)) == LOW)) {
     tiempo_conteo_oeste = millis();
     flag_oeste_c = 1;
   }
-  if ((oeste_atr_ante == LOW) && (digitalRead(oeste_ir_atr) == HIGH)) {
+  if ((oeste_atr_ante == LOW) && (conversor(analogRead(oeste_ir_atr)) == HIGH)) {
     flag_oeste_c = 0;
   }
   if (((millis() - tiempo_conteo_oeste) > 150) && (flag_oeste_c == 1)) {
     flag_oeste_c = 0;
     pasaron_oeste = pasaron_oeste + 1;
   }
-  oeste_atr_ante = digitalRead(oeste_ir_atr);
+  oeste_atr_ante = conversor(analogRead(oeste_ir_atr));
 }
 
 
@@ -264,7 +264,7 @@ int tiempos(unsigned int car1, unsigned int car2, bool hayo) {
   int clo = 0;
 
   if (car1 == 0 && car2 == 0) {
-    return 1;
+    return 3;
   }
 
   if (car1 > car2) {
@@ -396,15 +396,6 @@ void setup() {
   pinMode(oestea, OUTPUT);
   pinMode(oestev, OUTPUT);
 
-  // Entradas sensores-------------------------
-  pinMode(norte_ir_atr, INPUT);
-  pinMode(norte_ir_ade, INPUT);
-  pinMode(sur_ir_atr, INPUT);
-  pinMode(sur_ir_ade, INPUT);
-  pinMode(este_ir_atr, INPUT);
-  pinMode(este_ir_ade, INPUT);
-  pinMode(oeste_ir_atr, INPUT);
-  pinMode(oeste_ir_ade, INPUT);
 }
 
 int estado = 1;
