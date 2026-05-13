@@ -2,8 +2,8 @@
 #include <WiFi.h>
 #include <PubSubClient.h>
 
-const char* ssid = "";
-const char* password = "";
+const char* ssid = "sc-17f0";
+const char* password = "Q5DN24V4FLYG";
 
 const char* mqtt_server = "broker.hivemq.com";
 
@@ -18,21 +18,21 @@ long ultimo_reporte = 0;
 
 
 //Definir los pines de la ESP (pendiente) ------------------------------------
-#define norter 5
-#define nortea 5
-#define nortev 5
+#define norter 9
+#define nortea 10
+#define nortev 11
 
-#define surr 5
-#define sura 5
-#define surv 5
+#define surr 12
+#define sura 13
+#define surv 14
 
-#define ester 5
-#define estea 5
-#define estev 5
+#define ester 17
+#define estea 18
+#define estev 21
 
-#define oester 5
-#define oestea 5
-#define oestev 5
+#define oester 38
+#define oestea 39
+#define oestev 40
 
 
 #define norte_ir_ade 2
@@ -128,7 +128,8 @@ bool hayAutos_n_s() {
     flag_norte = 0;
     norte_ante = lectura_norte;
     sur_ante = lectura_sur;
-    return true;
+    Serial.println("NORTE-SUR espera");
+    return true; 
   }
 
   //SUR_________________
@@ -143,6 +144,7 @@ bool hayAutos_n_s() {
     flag_sur = 0;
     sur_ante = lectura_sur;
     norte_ante = lectura_norte;
+    Serial.println("NORTE-SUR espera");
     return true;
   }
   norte_ante = lectura_norte;
@@ -169,6 +171,7 @@ bool hayAutos_e_o() {
     flag_este = 0;
     este_ante = lectura_este;
     oeste_ante = lectura_oeste;
+    Serial.println("ESTE-OESTE espera");
     return true;
   }
 
@@ -184,6 +187,7 @@ bool hayAutos_e_o() {
     este_ante = lectura_este;
     oeste_ante = lectura_oeste;
     flag_oeste = 0;
+    Serial.println("ESTE-OESTE espera");
     return true;
   }
   este_ante = lectura_este;
@@ -205,6 +209,7 @@ void contar_autos_norte() {
   if (((millis() - tiempo_conteo_norte) > 150) && (flag_norte_c == 1)) {
     flag_norte_c = 0;
     pasaron_norte = pasaron_norte + 1;
+    Serial.println("Paso_norte");
   }
   norte_atr_ante = conversor(analogRead(norte_ir_atr));
 }
@@ -221,6 +226,7 @@ void contar_autos_sur() {
   if (((millis() - tiempo_conteo_sur) > 150) && (flag_sur_c == 1)) {
     flag_sur_c = 0;
     pasaron_sur = pasaron_sur + 1;
+    Serial.println("Paso_sur");
   }
   sur_atr_ante = conversor(analogRead(sur_ir_atr));
 }
@@ -237,6 +243,7 @@ void contar_autos_este() {
   if (((millis() - tiempo_conteo_este) > 150) && (flag_este_c == 1)) {
     flag_este_c = 0;
     pasaron_este = pasaron_este + 1;
+    Serial.println("Paso_este");
   }
   este_atr_ante = conversor(analogRead(este_ir_atr));
 }
@@ -253,6 +260,7 @@ void contar_autos_oeste() {
   if (((millis() - tiempo_conteo_oeste) > 150) && (flag_oeste_c == 1)) {
     flag_oeste_c = 0;
     pasaron_oeste = pasaron_oeste + 1;
+    Serial.println("Paso_oeste");
   }
   oeste_atr_ante = conversor(analogRead(oeste_ir_atr));
 }
